@@ -5,7 +5,6 @@
   "homepage": "https://github.com/dijkstra1115/claude-watch",
   "license": "MIT",
   "keywords": ["video", "lecture", "tutorial", "notes", "transcript", "ffmpeg", "yt-dlp"],
-  "skills": "./",
   "commands": ["./commands/claude-watch.md"],
   "hooks": "./hooks/hooks.json"
 }
