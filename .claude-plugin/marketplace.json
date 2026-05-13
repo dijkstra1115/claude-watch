@@ -7,7 +7,10 @@
   "plugins": [
     {
       "name": "claude-watch",
-      "source": "https://github.com/dijkstra1115/claude-watch",
+      "source": {
+        "source": "github",
+        "repo": "dijkstra1115/claude-watch"
+      },
       "description": "Watch a tutorial/lecture video and produce structured study notes",
       "version": "0.1.0",
       "category": "productivity"
