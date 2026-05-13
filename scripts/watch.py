@@ -20,7 +20,7 @@ from scripts import download as download_mod
 from scripts import transcribe as transcribe_mod
 from scripts import scenes as scenes_mod
 from scripts import frames as frames_mod
-from scripts import whisper
+from scripts import local_whisper as whisper
 
 
 def _parse_ts(s: str) -> float:
@@ -90,14 +90,14 @@ def main(argv: list[str] | None = None) -> int:
     # ---- Stage 3: transcribe ----
     transcript_path = work / "transcript.json"
     if cached and transcript_path.exists():
-        transcript = json.loads(transcript_path.read_text())
+        transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
     else:
         transcript: list[dict] = []
         if meta["is_url"]:
             vtt = transcribe_mod.fetch_native_captions(meta["source"], work / "subs")
             if vtt:
                 transcript = transcribe_mod.dedupe_cues(
-                    transcribe_mod.parse_vtt(vtt.read_text())
+                    transcribe_mod.parse_vtt(vtt.read_text(encoding="utf-8"))
                 )
                 # Keep the raw VTT alongside transcript.json for grepability
                 (work / "transcript.vtt").write_bytes(vtt.read_bytes())
@@ -119,7 +119,9 @@ def main(argv: list[str] | None = None) -> int:
                 except whisper.WhisperError as e:
                     print(f"Whisper failed: {e}", file=sys.stderr)
         transcript = transcribe_mod.insert_speaker_breaks(transcript)
-        transcript_path.write_text(json.dumps(transcript, indent=2, ensure_ascii=False))
+        transcript_path.write_text(
+            json.dumps(transcript, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     if focus:
         transcript_for_window = transcribe_mod.slice_to_window(
@@ -133,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     if cached and scenes_path.exists() and not focus:
         raw_scenes = [
             scenes_mod.Scene(t=s["t"], score=s["score"], kind=s["kind"])
-            for s in json.loads(scenes_path.read_text())
+            for s in json.loads(scenes_path.read_text(encoding="utf-8"))
         ]
     else:
         raw_scenes = scenes_mod.detect_scenes(video, threshold=args.scene_threshold)
@@ -156,10 +158,13 @@ def main(argv: list[str] | None = None) -> int:
     capped = scenes_mod.apply_budget_cap(floored, max_frames=args.max_frames)
 
     if not focus:
-        scenes_path.write_text(json.dumps(
-            [{"t": s.t, "score": s.score, "kind": s.kind} for s in capped],
-            indent=2,
-        ))
+        scenes_path.write_text(
+            json.dumps(
+                [{"t": s.t, "score": s.score, "kind": s.kind} for s in capped],
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     # ---- Stage 5+6: extract frames ----
     frames_dir = work / "frames"
@@ -181,13 +186,16 @@ def main(argv: list[str] | None = None) -> int:
     transcript_window_path = work / "transcript.window.json"
     if focus:
         transcript_window_path.write_text(
-            json.dumps(transcript_for_window, indent=2, ensure_ascii=False)
+            json.dumps(transcript_for_window, indent=2, ensure_ascii=False),
+            encoding="utf-8",
         )
         transcript_consumer_path = "transcript.window.json"
     else:
         transcript_consumer_path = "transcript.json"
 
-    (work / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+    (work / "meta.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     lib.write_manifest(
         path=work / "manifest.json",
         meta=meta,

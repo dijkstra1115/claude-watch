@@ -36,7 +36,7 @@ def cache_lookup(slug: str, source_hash: str) -> Path | None:
     if not meta_path.exists():
         return None
     try:
-        data = json.loads(meta_path.read_text())
+        data = json.loads(meta_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
     return d if data.get("source_hash") == source_hash else None
@@ -64,4 +64,4 @@ def write_manifest(
         ),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")

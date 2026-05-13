@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from scripts import whisper
+from scripts import local_whisper as whisper
 
 _TS_RX = re.compile(
     r"(?:(\d+):)?(\d{1,2}):(\d{2})(?:[.,](\d{1,3}))?\s*-->\s*"

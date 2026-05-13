@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scripts.whisper import (
+from scripts.local_whisper import (
     SUPPORTED_LANGUAGES,
     WhisperError,
     model_for,

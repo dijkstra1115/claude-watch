@@ -2,6 +2,12 @@
 
 All notable changes to `claude-watch` are documented here.
 
+## [0.1.4] — 2026-05-13
+
+### Fixed
+- Rename `scripts/whisper.py` to `scripts/local_whisper.py` to avoid a Python import shadow: when running `python scripts/watch.py`, Python adds `scripts/` to `sys.path[0]`, so `import whisper` inside the wrapper was loading our own module instead of the third-party `openai-whisper`, causing `AttributeError: module 'whisper' has no attribute 'load_model'` mid-run.
+- Explicit `encoding="utf-8"` on all `read_text` / `write_text` calls in `watch.py` and `library.py`. On Windows, Python defaults to the locale codec (e.g. `cp950` Big5 on zh-TW systems), which can't encode CJK characters in transcripts/manifests and crashed mid-pipeline with `UnicodeEncodeError`.
+
 ## [0.1.3] — 2026-05-13
 
 ### Changed
