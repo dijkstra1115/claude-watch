@@ -2,6 +2,17 @@
 
 All notable changes to `claude-watch` are documented here.
 
+## [0.1.3] — 2026-05-13
+
+### Changed
+- Transcription now runs **locally** via `openai-whisper`. The Groq and OpenAI Whisper HTTP clients have been removed, along with all API-key handling and the `~/.config/claude-watch/.env` scaffold.
+- New `--language {en,zh}` flag on `watch.py` selects the spoken language. English uses the `base.en` checkpoint, Chinese uses the multilingual `base` checkpoint.
+- `setup.py` preflight now probes for the `whisper` Python package and prints `pip install -U openai-whisper` when missing.
+- SKILL.md instructs Claude to ask the user for the language via `AskUserQuestion` when it isn't obvious.
+
+### Removed
+- `--whisper groq|openai` flag, `pick_backend`, the multipart HTTP client, and the `.env`-based API-key configuration.
+
 ## [0.1.0] — 2026-05-03
 
 ### Added
