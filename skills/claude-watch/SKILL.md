@@ -1,6 +1,6 @@
 ---
 name: claude-watch
-description: Watch a tutorial or lecture video (URL or local path) and produce structured study notes. Downloads with yt-dlp, detects scene changes with ffmpeg, pulls a timestamped transcript (captions or Whisper API fallback), and writes a section-by-section markdown notes file with embedded screenshots to ~/claude-watch/library/<slug>/.
+description: Watch a tutorial or lecture video (URL or local path) and produce structured study notes. Downloads with yt-dlp, detects scene changes with ffmpeg, pulls a timestamped transcript (captions or local Whisper fallback in English/Chinese), and writes a section-by-section markdown notes file with embedded screenshots to ~/claude-watch/library/<slug>/.
 argument-hint: "<video-url-or-path> [topic-or-question]"
 allowed-tools: Bash, Read, Write, AskUserQuestion
 homepage: https://github.com/dijkstra1115/claude-watch
@@ -21,15 +21,15 @@ Run on every `/claude-watch` invocation:
 python3 "${CLAUDE_SKILL_DIR}/scripts/setup.py" --check
 ```
 
-Exit codes: `0` ready (silent, proceed), `2` missing binaries. On non-zero, run the installer:
+Exit codes: `0` ready (silent, proceed), `2` missing binaries or missing `openai-whisper` package. On non-zero, run the installer:
 
 ```bash
 python3 "${CLAUDE_SKILL_DIR}/scripts/setup.py"
 ```
 
-On all platforms it prints the install commands for ffmpeg + yt-dlp when they are missing. It scaffolds `~/.config/claude-watch/.env` (mode 0600) with commented placeholders.
+On all platforms it prints the install commands for ffmpeg + yt-dlp + `openai-whisper` when they are missing.
 
-Whisper keys are optional. If no Groq/OpenAI key is configured, proceed normally; videos without native captions will come back frames-only unless the user chooses to add a key.
+Transcription runs locally — no API keys are required. Videos without native captions will be transcribed with Whisper, but only if the user specifies a language (English or Chinese). Otherwise they come back frames-only.
 
 ## When to use
 
@@ -41,20 +41,22 @@ Whisper keys are optional. If no Groq/OpenAI key is configured, proceed normally
 
 **Step 1 — parse input.** Separate the source (URL or path) from any topic the user mentioned. The topic shapes which sections you emphasize in the notes — pass it through to your synthesis, not to the script.
 
+**Step 1.5 — choose the spoken language.** Local Whisper needs to know the language. If the user's request makes it obvious (e.g. they mention "this English lecture" or paste a `youtube.com` URL with `&hl=zh`), use it directly. Otherwise call `AskUserQuestion` with the options `English` → `en` and `中文 (Chinese)` → `zh`, and pass the result as `--language`. Skip this step if the user already passed `--no-whisper` or the video clearly has native captions.
+
 **Step 2 — run the watch script.**
 
 ```bash
-python3 "${CLAUDE_SKILL_DIR}/scripts/watch.py" "<source>"
+python3 "${CLAUDE_SKILL_DIR}/scripts/watch.py" "<source>" --language en
 ```
 
 Optional flags:
+- `--language {en,zh}` — spoken language for Whisper (required to run Whisper)
 - `--start T` / `--end T` — focus on a section (`SS`, `MM:SS`, or `HH:MM:SS`)
 - `--max-frames N` — lower budget (default 80)
 - `--resolution W` — bump frame width to 1024 px when on-screen text is tiny
 - `--scene-threshold X` — sensitivity (default 0.30; raise for fewer cuts, lower for more)
 - `--max-gap S` — coverage floor in seconds (default 45)
-- `--whisper groq|openai` — force backend
-- `--no-whisper` — disable Whisper entirely
+- `--no-whisper` — disable Whisper entirely (frames-only when no captions)
 - `--out-dir DIR` — override library root
 
 **Step 3 — read every frame.** The script ends with a structured `=== frames ===` block listing each frame's path and timestamp. `Read` them all in parallel — they render as images in your context.
@@ -128,10 +130,10 @@ If the user re-watches the same URL, the script reuses the cached download, tran
 
 ## Failure modes
 
-- **Setup preflight non-zero** → run `setup.py`, then ask the user to install the missing binaries.
-- **No transcript** → script emits `transcript_source: none`. Generate notes frames-only and tell the user.
+- **Setup preflight non-zero** → run `setup.py`, then ask the user to install the missing binaries or `pip install -U openai-whisper`.
+- **No transcript** → script emits `transcript_source: none`. Generate notes frames-only and tell the user (most common cause: user passed `--no-whisper`, or `--language` was omitted).
 - **Long video sparse-scan warning** → offer to re-run with `--start`/`--end` focused on the part the user cares about.
-- **Whisper failure** → retry with `--whisper openai` (if Groq failed) or vice versa.
+- **Whisper failure** → check stderr; usually a missing model download (first run downloads `base` / `base.en` automatically) or insufficient disk.
 
 ## Token budget
 
@@ -141,8 +143,7 @@ If the user asks a follow-up about a video you already watched in this session, 
 
 ## Security
 
-- Runs `yt-dlp`, `ffmpeg`, `ffprobe` locally
-- Sends extracted mono 16 kHz audio to Groq (preferred) or OpenAI Whisper API only when captions are missing
-- Reads/writes `~/.config/claude-watch/.env` (mode 0600) for keys
+- Runs `yt-dlp`, `ffmpeg`, `ffprobe`, and `openai-whisper` locally
+- Audio never leaves the machine — Whisper transcription is fully local
+- No API keys are read, stored, or transmitted
 - Persists artifacts to `~/claude-watch/library/<slug>/` — review the directory after first run if you're cautious
-- Does NOT log or transmit API keys, video files, or the original URL outside the audio-to-Whisper call

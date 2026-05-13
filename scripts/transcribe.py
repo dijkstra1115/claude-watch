@@ -156,19 +156,6 @@ def extract_audio_for_whisper(video: Path, out_audio: Path) -> None:
     )
 
 
-def transcribe_via_whisper(
-    audio: Path,
-    *,
-    backend: str,
-    groq_key: Optional[str],
-    openai_key: Optional[str],
-) -> list[dict]:
-    if backend == "groq":
-        if not groq_key:
-            raise whisper.WhisperError("Groq backend selected but GROQ_API_KEY is unset")
-        return whisper.transcribe_groq(audio, api_key=groq_key)
-    if backend == "openai":
-        if not openai_key:
-            raise whisper.WhisperError("OpenAI backend selected but OPENAI_API_KEY is unset")
-        return whisper.transcribe_openai(audio, api_key=openai_key)
-    raise whisper.WhisperError(f"Unknown backend: {backend}")
+def transcribe_via_whisper(audio: Path, *, language: str) -> list[dict]:
+    """Run local Whisper on the extracted audio for the given language."""
+    return whisper.transcribe_local(audio, language=language)

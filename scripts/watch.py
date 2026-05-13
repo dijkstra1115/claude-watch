@@ -20,7 +20,6 @@ from scripts import download as download_mod
 from scripts import transcribe as transcribe_mod
 from scripts import scenes as scenes_mod
 from scripts import frames as frames_mod
-from scripts import setup as setup_mod
 from scripts import whisper
 
 
@@ -53,7 +52,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--resolution", type=int, default=512, help="frame width in px")
     p.add_argument("--scene-threshold", type=float, default=0.30)
     p.add_argument("--max-gap", type=float, default=45.0, help="coverage floor seconds")
-    p.add_argument("--whisper", choices=["groq", "openai"], help="force Whisper backend")
+    p.add_argument(
+        "--language",
+        choices=list(whisper.SUPPORTED_LANGUAGES),
+        help="spoken language for local Whisper (required to run Whisper)",
+    )
     p.add_argument("--no-whisper", action="store_true", help="disable Whisper fallback")
     p.add_argument("--out-dir", help="library root (default: ~/claude-watch/library)")
     args = p.parse_args(argv)
@@ -99,24 +102,22 @@ def main(argv: list[str] | None = None) -> int:
                 # Keep the raw VTT alongside transcript.json for grepability
                 (work / "transcript.vtt").write_bytes(vtt.read_bytes())
         if not transcript and not args.no_whisper:
-            env = setup_mod._read_env()
-            backend = whisper.pick_backend(
-                groq_key=env.get("GROQ_API_KEY"),
-                openai_key=env.get("OPENAI_API_KEY"),
-                forced=args.whisper,
-            )
-            if backend:
+            if not args.language:
+                print(
+                    "No captions found and no --language passed; "
+                    "skipping transcription. Re-run with --language en or --language zh, "
+                    "or pass --no-whisper to silence this notice.",
+                    file=sys.stderr,
+                )
+            else:
                 audio = work / "audio.m4a"
                 transcribe_mod.extract_audio_for_whisper(video, audio)
                 try:
                     transcript = transcribe_mod.transcribe_via_whisper(
-                        audio,
-                        backend=backend,
-                        groq_key=env.get("GROQ_API_KEY"),
-                        openai_key=env.get("OPENAI_API_KEY"),
+                        audio, language=args.language
                     )
                 except whisper.WhisperError as e:
-                    print(f"Whisper failed ({backend}): {e}", file=sys.stderr)
+                    print(f"Whisper failed: {e}", file=sys.stderr)
         transcript = transcribe_mod.insert_speaker_breaks(transcript)
         transcript_path.write_text(json.dumps(transcript, indent=2, ensure_ascii=False))
 

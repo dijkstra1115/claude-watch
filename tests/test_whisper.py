@@ -1,74 +1,100 @@
-import io
-import json
-from unittest.mock import patch, MagicMock
+import sys
+import types
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from scripts.whisper import (
-    pick_backend,
-    transcribe_groq,
-    transcribe_openai,
+    SUPPORTED_LANGUAGES,
     WhisperError,
+    model_for,
+    transcribe_local,
 )
 
 
-def test_pick_backend_prefers_groq_when_both_keys_set():
-    assert pick_backend(groq_key="g", openai_key="o", forced=None) == "groq"
+def test_supported_languages_are_en_and_zh():
+    assert set(SUPPORTED_LANGUAGES) == {"en", "zh"}
 
 
-def test_pick_backend_falls_back_to_openai():
-    assert pick_backend(groq_key=None, openai_key="o", forced=None) == "openai"
+def test_model_for_english_uses_en_only_checkpoint():
+    assert model_for("en") == "base.en"
 
 
-def test_pick_backend_returns_none_when_no_keys():
-    assert pick_backend(groq_key=None, openai_key=None, forced=None) is None
+def test_model_for_chinese_uses_multilingual_checkpoint():
+    assert model_for("zh") == "base"
 
 
-def test_pick_backend_honors_forced_backend():
-    assert pick_backend(groq_key="g", openai_key="o", forced="openai") == "openai"
-
-
-def test_pick_backend_forced_without_key_returns_none():
-    assert pick_backend(groq_key=None, openai_key="o", forced="groq") is None
-
-
-@patch("scripts.whisper.urlopen")
-def test_transcribe_groq_posts_to_correct_endpoint_with_api_key(mock_urlopen, tmp_path):
-    audio = tmp_path / "a.m4a"
-    audio.write_bytes(b"\x00\x00\x00\x00")
-    resp = MagicMock()
-    resp.read.return_value = json.dumps({
-        "segments": [{"start": 0.0, "end": 1.0, "text": "hello"}]
-    }).encode()
-    resp.__enter__.return_value = resp
-    mock_urlopen.return_value = resp
-    out = transcribe_groq(audio, api_key="testkey")
-    assert out == [{"t_start": 0.0, "t_end": 1.0, "text": "hello"}]
-    req = mock_urlopen.call_args[0][0]
-    assert "api.groq.com" in req.full_url
-    # Use the documented Request API; urllib stores headers with title-case keys.
-    assert req.get_header("Authorization") == "Bearer testkey"
-
-
-@patch("scripts.whisper.urlopen")
-def test_transcribe_openai_posts_to_correct_endpoint(mock_urlopen, tmp_path):
-    audio = tmp_path / "a.m4a"
-    audio.write_bytes(b"\x00")
-    resp = MagicMock()
-    resp.read.return_value = json.dumps({
-        "segments": [{"start": 1.0, "end": 2.0, "text": "world"}]
-    }).encode()
-    resp.__enter__.return_value = resp
-    mock_urlopen.return_value = resp
-    out = transcribe_openai(audio, api_key="k")
-    assert out == [{"t_start": 1.0, "t_end": 2.0, "text": "world"}]
-    req = mock_urlopen.call_args[0][0]
-    assert "api.openai.com" in req.full_url
-
-
-@patch("scripts.whisper.urlopen", side_effect=Exception("boom"))
-def test_transcribe_groq_wraps_errors_in_whisper_error(mock_urlopen, tmp_path):
-    audio = tmp_path / "a.m4a"
-    audio.write_bytes(b"\x00")
+def test_model_for_unsupported_language_raises():
     with pytest.raises(WhisperError):
-        transcribe_groq(audio, api_key="k")
+        model_for("ja")
+
+
+def _install_fake_whisper_module(monkeypatch, fake_model):
+    """Inject a fake `whisper` module into sys.modules so `import whisper` returns it."""
+    fake_mod = types.ModuleType("whisper")
+    fake_mod.load_model = MagicMock(return_value=fake_model)
+    monkeypatch.setitem(sys.modules, "whisper", fake_mod)
+    return fake_mod
+
+
+def test_transcribe_local_loads_en_model_and_passes_language(tmp_path, monkeypatch):
+    audio = tmp_path / "a.m4a"
+    audio.write_bytes(b"\x00")
+    fake_model = MagicMock()
+    fake_model.transcribe.return_value = {
+        "segments": [{"start": 0.0, "end": 1.5, "text": " hello world "}]
+    }
+    fake_mod = _install_fake_whisper_module(monkeypatch, fake_model)
+
+    out = transcribe_local(audio, language="en")
+
+    fake_mod.load_model.assert_called_once_with("base.en")
+    fake_model.transcribe.assert_called_once()
+    kwargs = fake_model.transcribe.call_args.kwargs
+    assert kwargs["language"] == "en"
+    assert out == [{"t_start": 0.0, "t_end": 1.5, "text": "hello world"}]
+
+
+def test_transcribe_local_loads_zh_multilingual_model(tmp_path, monkeypatch):
+    audio = tmp_path / "a.m4a"
+    audio.write_bytes(b"\x00")
+    fake_model = MagicMock()
+    fake_model.transcribe.return_value = {
+        "segments": [{"start": 2.0, "end": 3.0, "text": "你好"}]
+    }
+    fake_mod = _install_fake_whisper_module(monkeypatch, fake_model)
+
+    out = transcribe_local(audio, language="zh")
+
+    fake_mod.load_model.assert_called_once_with("base")
+    assert fake_model.transcribe.call_args.kwargs["language"] == "zh"
+    assert out == [{"t_start": 2.0, "t_end": 3.0, "text": "你好"}]
+
+
+def test_transcribe_local_explicit_model_name_overrides_default(tmp_path, monkeypatch):
+    audio = tmp_path / "a.m4a"
+    audio.write_bytes(b"\x00")
+    fake_model = MagicMock()
+    fake_model.transcribe.return_value = {"segments": []}
+    fake_mod = _install_fake_whisper_module(monkeypatch, fake_model)
+
+    transcribe_local(audio, language="en", model_name="medium.en")
+
+    fake_mod.load_model.assert_called_once_with("medium.en")
+
+
+def test_transcribe_local_wraps_missing_package_as_whisper_error(tmp_path, monkeypatch):
+    # Ensure `import whisper` raises ImportError inside the function.
+    monkeypatch.setitem(sys.modules, "whisper", None)
+    with pytest.raises(WhisperError):
+        transcribe_local(tmp_path / "x.m4a", language="en")
+
+
+def test_transcribe_local_wraps_transcribe_failures(tmp_path, monkeypatch):
+    audio = tmp_path / "a.m4a"
+    audio.write_bytes(b"\x00")
+    fake_model = MagicMock()
+    fake_model.transcribe.side_effect = RuntimeError("decode boom")
+    _install_fake_whisper_module(monkeypatch, fake_model)
+    with pytest.raises(WhisperError):
+        transcribe_local(audio, language="en")
