@@ -21,7 +21,7 @@ def test_model_for_english_uses_en_only_checkpoint():
 
 
 def test_model_for_chinese_uses_multilingual_checkpoint():
-    assert model_for("zh") == "base"
+    assert model_for("zh") == "medium"
 
 
 def test_model_for_unsupported_language_raises():
@@ -66,7 +66,7 @@ def test_transcribe_local_loads_zh_multilingual_model(tmp_path, monkeypatch):
 
     out = transcribe_local(audio, language="zh")
 
-    fake_mod.load_model.assert_called_once_with("base")
+    fake_mod.load_model.assert_called_once_with("medium")
     assert fake_model.transcribe.call_args.kwargs["language"] == "zh"
     assert out == [{"t_start": 2.0, "t_end": 3.0, "text": "你好"}]
 

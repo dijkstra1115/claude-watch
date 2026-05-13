@@ -2,6 +2,11 @@
 
 All notable changes to `claude-watch` are documented here.
 
+## [0.1.5] — 2026-05-13
+
+### Changed
+- Bump default Chinese Whisper checkpoint from `base` (~140 MB) to `medium` (~1.5 GB). The multilingual `base` model produced unusable transcripts on real lecture audio (mangled CJK, English fragments substituted for Chinese phrases). `medium` is significantly slower on CPU but the only tier that's actually accurate enough to read.
+
 ## [0.1.4] — 2026-05-13
 
 ### Fixed

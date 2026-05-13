@@ -12,7 +12,7 @@
         "repo": "dijkstra1115/claude-watch"
       },
       "description": "Watch a tutorial/lecture video and produce structured study notes",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "productivity"
     }
   ]

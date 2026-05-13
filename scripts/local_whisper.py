@@ -11,8 +11,9 @@ from typing import Optional
 
 
 # `base.en` for English (English-only checkpoint, ~145 MB, faster on CPU).
-# `base`   for Chinese (English-only checkpoints can't decode zh).
-_DEFAULT_MODEL = {"en": "base.en", "zh": "base"}
+# `medium`  for Chinese — multilingual `base` mangles zh too often, so we
+# trade speed/disk (~1.5 GB) for usable Chinese transcripts.
+_DEFAULT_MODEL = {"en": "base.en", "zh": "medium"}
 
 SUPPORTED_LANGUAGES = tuple(_DEFAULT_MODEL.keys())
 
