@@ -3,8 +3,8 @@ name: claude-watch
 description: Watch a tutorial or lecture video (URL or local path) and produce structured study notes. Downloads with yt-dlp, detects scene changes with ffmpeg, pulls a timestamped transcript (captions or Whisper API fallback), and writes a section-by-section markdown notes file with embedded screenshots to ~/claude-watch/library/<slug>/.
 argument-hint: "<video-url-or-path> [topic-or-question]"
 allowed-tools: Bash, Read, Write, AskUserQuestion
-homepage: https://github.com/devinilabs/claude-watch
-repository: https://github.com/devinilabs/claude-watch
+homepage: https://github.com/dijkstra1115/claude-watch
+repository: https://github.com/dijkstra1115/claude-watch
 license: MIT
 user-invocable: true
 ---

@@ -10,9 +10,9 @@
 
 | Surface | Command |
 |---|---|
-| **Claude Code** | `/plugin marketplace add devinilabs/claude-watch` then `/plugin install claude-watch@claude-watch` |
+| **Claude Code** | `/plugin marketplace add dijkstra1115/claude-watch` then `/plugin install claude-watch@claude-watch` |
 | **claude.ai** (web) | Download `claude-watch.skill` from the latest release → Settings → Capabilities → Skills → `+` |
-| **Codex** | `git clone https://github.com/devinilabs/claude-watch ~/.codex/skills/claude-watch` |
+| **Codex** | `git clone https://github.com/dijkstra1115/claude-watch ~/.codex/skills/claude-watch` |
 
 ## What it does
 
@@ -71,7 +71,7 @@ To force a fresh run, delete the `meta.json` in the library dir.
 ## Develop
 
 ```bash
-git clone https://github.com/devinilabs/claude-watch
+git clone https://github.com/dijkstra1115/claude-watch
 cd claude-watch
 python3 -m pytest                         # full suite
 bash scripts/build-skill.sh               # → dist/claude-watch.skill (claude.ai bundle)
