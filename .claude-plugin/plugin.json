@@ -1,6 +1,6 @@
 {
   "name": "claude-watch",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Turn any video into a section-by-section study-notes markdown file with embedded screenshots and a timestamped transcript.",
   "homepage": "https://github.com/dijkstra1115/claude-watch",
   "license": "MIT",

@@ -29,6 +29,14 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/setup.py"
 
 On all platforms it prints the install commands for ffmpeg + yt-dlp + `openai-whisper` when they are missing.
 
+**If `${CLAUDE_SKILL_DIR}` is empty** (the runtime didn't export it for this invocation, which happens on some hosts), fall back to the installed plugin path before erroring out. On Windows this is typically:
+
+```
+~/.claude/plugins/cache/claude-watch/claude-watch/<version>/scripts/
+```
+
+Glob for `~/.claude/plugins/cache/claude-watch/claude-watch/*/scripts/setup.py` and use the highest version. Do **not** prompt the user to reinstall.
+
 Transcription runs locally — no API keys are required. Videos without native captions will be transcribed with Whisper, but only if the user specifies a language (English or Chinese). Otherwise they come back frames-only.
 
 ## When to use
@@ -134,6 +142,8 @@ If the user re-watches the same URL, the script reuses the cached download, tran
 - **No transcript** → script emits `transcript_source: none`. Generate notes frames-only and tell the user (most common cause: user passed `--no-whisper`, or `--language` was omitted).
 - **Long video sparse-scan warning** → offer to re-run with `--start`/`--end` focused on the part the user cares about.
 - **Whisper failure** → check stderr; usually a missing model download (first run downloads `base` / `base.en` automatically) or insufficient disk.
+- **Windows: `setup.py` keeps reporting yt-dlp missing after `pip install --user yt-dlp` succeeds** → `yt-dlp.exe` landed in `%APPDATA%\Python\Python3xx\Scripts\`, which is not on PATH. The bundled `setup.py` already probes that location, so on a current install you shouldn't see this — but if you do (older copy, virtualenv mismatch), either add that folder to PATH or `pip install --upgrade --force-reinstall yt-dlp` into a location that is on PATH.
+- **Windows: `UnicodeEncodeError: 'cp950'/'cp936'/'cp932' codec can't encode character ...`** on the final manifest print → the console codepage can't render the video title. `watch.py` forces UTF-8 on stdout/stderr at startup, so this shouldn't recur. If it does (older copy of the script), re-run with `PYTHONIOENCODING=utf-8` set: `PYTHONIOENCODING=utf-8 python "${CLAUDE_SKILL_DIR}/scripts/watch.py" ...`. All upstream artifacts (transcript, frames, scenes) are already on disk from the first run, so the re-run completes in seconds.
 
 ## Token budget
 

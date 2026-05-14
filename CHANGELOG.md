@@ -2,6 +2,17 @@
 
 All notable changes to `claude-watch` are documented here.
 
+## [0.1.6] — 2026-05-14
+
+### Fixed
+- `watch.py` now reconfigures `sys.stdout`/`sys.stderr` to UTF-8 at startup. The 0.1.4 fix covered `read_text`/`write_text` calls but missed the final `print(f"title: {meta['title']!r}")` manifest line, which still crashed on Windows consoles with cp950/cp936/cp932 codepages when the video title contained CJK characters. The pipeline had already finished the heavy work (download, scene detect, Whisper transcribe) by then, so users saw a `UnicodeEncodeError` traceback after a long, apparently successful run.
+- `setup.py` `_which()` falls back to probing `sysconfig.get_path("scripts", scheme="nt_user")` and `site.getuserbase()/Scripts` on Windows. `pip install --user yt-dlp` drops `yt-dlp.exe` into `%APPDATA%\Python\Python3xx\Scripts\`, which is not on PATH by default, so the preflight kept reporting yt-dlp missing and re-prompting reinstall.
+- `watch.py` prepends those same user-site Scripts dirs to `os.environ["PATH"]` at startup on Windows, so the `yt-dlp`/`ffmpeg`/`ffprobe` subprocess calls in `resolve.py`/`download.py`/`transcribe.py` inherit a PATH that actually finds the tools.
+
+### Documentation
+- SKILL.md Step 0 documents the fallback when `${CLAUDE_SKILL_DIR}` is empty (glob `~/.claude/plugins/cache/claude-watch/claude-watch/*/scripts/setup.py`).
+- SKILL.md Failure modes adds two Windows-specific entries (yt-dlp missing-after-install, manifest-print UnicodeEncodeError) as a backstop in case the code-side fixes don't take effect (older cached copy).
+
 ## [0.1.5] — 2026-05-13
 
 ### Changed

@@ -3,13 +3,51 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
+import site
 import sys
+import sysconfig
 from datetime import datetime, timezone
 from pathlib import Path
 
-# When invoked as `python scripts/watch.py` the repo root is not automatically
-# on sys.path.  Insert it so that `from scripts import …` works correctly
-# regardless of how the script is launched.
+# Windows defaults stdout to the OEM codepage (cp950 on zh-TW, cp936 on zh-CN,
+# cp932 on ja-JP, etc.), which can't encode characters outside that range —
+# printing the manifest crashes on non-ASCII titles. Force UTF-8 on the streams
+# we own so this works regardless of console codepage.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure is not None:
+        _reconfigure(encoding="utf-8", errors="replace")
+
+
+def _augment_path_for_user_scripts() -> None:
+    """Ensure `pip install --user` script dirs are visible to subprocesses.
+
+    On Windows, `pip install --user yt-dlp` drops `yt-dlp.exe` into
+    %APPDATA%\\Python\\Python3xx\\Scripts\\, which is not on PATH by default.
+    Subprocess calls to `yt-dlp` then fail with FileNotFoundError even though
+    the tool is installed. Prepend those dirs to PATH for this process tree.
+    """
+    if platform.system().lower() != "windows":
+        return
+    candidates: list[Path] = []
+    try:
+        candidates.append(Path(sysconfig.get_path("scripts", scheme="nt_user")))
+    except (KeyError, ValueError):
+        pass
+    user_base = site.getuserbase()
+    if user_base:
+        candidates.append(Path(user_base) / "Scripts")
+    existing = os.environ.get("PATH", "")
+    existing_parts = existing.split(os.pathsep)
+    prefix = [str(c) for c in candidates if c.is_dir() and str(c) not in existing_parts]
+    if prefix:
+        os.environ["PATH"] = os.pathsep.join(prefix + existing_parts)
+
+
+_augment_path_for_user_scripts()
+
 _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))

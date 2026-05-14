@@ -16,7 +16,9 @@ import json
 import os
 import platform
 import shutil
+import site
 import sys
+import sysconfig
 from pathlib import Path
 from typing import Optional
 
@@ -25,8 +27,35 @@ LIBRARY_ROOT = Path.home() / "claude-watch" / "library"
 REQUIRED_BINS = ("ffmpeg", "ffprobe", "yt-dlp")
 
 
+def _user_scripts_dirs() -> list[Path]:
+    candidates: list[Path] = []
+    try:
+        candidates.append(Path(sysconfig.get_path("scripts", scheme="nt_user")))
+    except (KeyError, ValueError):
+        pass
+    user_base = site.getuserbase()
+    if user_base:
+        candidates.append(Path(user_base) / "Scripts")
+    return [c for c in candidates if c.is_dir()]
+
+
 def _which(name: str) -> Optional[str]:
-    return shutil.which(name)
+    # `pip install --user` on Windows drops executables into
+    # %APPDATA%\Python\Python3xx\Scripts\, which is not on PATH by default —
+    # so `shutil.which` reports the tool missing even when installed and
+    # usable. Probe the user-site Scripts dir as a fallback.
+    found = shutil.which(name)
+    if found:
+        return found
+    if platform.system().lower() != "windows":
+        return None
+    exts = os.environ.get("PATHEXT", ".EXE;.CMD;.BAT").lower().split(";")
+    for d in _user_scripts_dirs():
+        for ext in ("",) + tuple(exts):
+            candidate = d / f"{name}{ext}"
+            if candidate.is_file():
+                return str(candidate)
+    return None
 
 
 def _whisper_importable() -> bool:
